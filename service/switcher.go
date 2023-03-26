@@ -20,11 +20,15 @@ func StartService() error {
 	var set domain.MetricsCount
 	validate := validator.New()
 	// дефолтное значение параметров запуска утилиты
-	set.RttSettings = 100          // предел задержки по сети
-	set.PacketLossSettings = 60    // предел потери пакетов
-	set.PingerCount = 10           // сколько пакетов надо плюнуть
-	set.PingerInterval = 20        // за какое время это пакеты на выплюнуть
-	set.NetworkSwitchMode = "auto" // автоматический режим переключения сети по умолчанию
+
+	//set.RttSettings = 100          // предел задержки по сети
+	//set.PacketLossSettings = 60    // предел потери пакетов
+	//set.PingerCount = 10           // сколько пакетов надо плюнуть
+	//set.PingerInterval = 20        // за какое время это пакеты на выплюнуть
+	//set.NetworkSwitchMode = "auto" // автоматический режим переключения сети по умолчанию
+	//set.PingBlocksNum = 3          // сколько раз должна сработать пингмашина,
+	//// чтобы проанализировать то, что там насчиталось
+	_ = set.SetDefaultFromEnv()
 	set.CurrentInterface = "eth0"
 	wg := sync.WaitGroup{}
 	wg.Add(4)
@@ -64,6 +68,7 @@ func Endpoints(r *gin.Engine, wg *sync.WaitGroup, validate *validator.Validate,
 				set.RttSettings = newSettings.RttSettings
 				set.PingerCount = newSettings.PingerCount
 				set.PingerInterval = newSettings.PingerInterval
+				set.PingBlocksNum = newSettings.PingBlocksNum
 				c.IndentedJSON(http.StatusCreated, set)
 			}
 
@@ -111,7 +116,7 @@ func NetworkScan(PingToSwitch chan struct{}, set *domain.MetricsCount) error {
 					}
 				})
 
-				time.Sleep(time.Millisecond * 50)
+				time.Sleep(time.Millisecond * 500)
 				continue
 			}
 			ping, err := exec.Command("ping", "-I", set.CurrentInterface, "-i 0.2",

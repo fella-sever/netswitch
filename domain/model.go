@@ -2,7 +2,11 @@ package domain
 
 import (
 	"fmt"
+	"golang.org/x/sys/unix"
+	"log"
+	"os"
 	"os/exec"
+	"strconv"
 )
 
 type MetricsCount struct {
@@ -16,6 +20,7 @@ type MetricsCount struct {
 	PingerInterval      int64   `json:"pinger_interval_ms"`           // настройки интервалов пинга (пользователь)
 	NetworkSwitchMode   string  `json:"network_switch_mode"`          // настройки режима переключения сети
 	CurrentInterface    string  `json:"current_interface"`
+	PingBlocksNum       float64 `json:"ping_blocks_num" validate:"numeric,required,min=1"`
 }
 
 type MetricsUserSetDto struct {
@@ -109,5 +114,40 @@ func (m *MetricsCount) IpTablesSwitchReserve() error {
 
 func (m *MetricsCount) Pinger() error {
 
+	return nil
+}
+
+func (m *MetricsCount) SetDefaultFromEnv() (err error) {
+
+	fmt.Println(unix.Getenv("RTT_SETTINGS"))
+
+	var defaultEnv = []string{"RTT_SETTINGS", "PACKET_LOSS_SETTINGS", "PINGER_COUNT",
+		"PINGER_INTERVAL", "NETWORK_SWITCH_MODE", "PING_BLOCKS_NUM"}
+
+	for _, env := range defaultEnv {
+		val, found := unix.Getenv(env)
+		if !found {
+			log.Printf("founded env: %b, %s\n", found, env)
+			log.Println("there is no default env in /etc/environment, stop.")
+			os.Exit(1)
+		}
+
+		switch env {
+		case "RTT_SETTINGS":
+			m.RttSettings, _ = strconv.ParseFloat(val, 10)
+		case "PACKET_LOSS_SETTINGS":
+			m.PacketLossSettings, _ = strconv.ParseFloat(val, 10)
+		case "PINGER_COUNT":
+			m.PingerCount, _ = strconv.Atoi(val)
+		case "PINGER_INTERVAL":
+			m.PingerInterval, _ = strconv.ParseInt(val, 64, 10)
+		case "NETWORK_SWITCH_MODE":
+			m.NetworkSwitchMode = val
+		case "PING_BLOCKS_NUM":
+			m.PingBlocksNum, _ = strconv.ParseFloat(val, 10)
+		default:
+
+		}
+	}
 	return nil
 }
