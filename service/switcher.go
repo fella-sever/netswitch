@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"log"
@@ -52,13 +53,20 @@ func Endpoints(r *gin.Engine, wg *sync.WaitGroup, validate *validator.Validate,
 		r.POST("/configure", func(c *gin.Context) {
 			var newSettings domain.MetricsUserSetDto
 			if err := c.BindJSON(&newSettings); err != nil {
-				return
+				c.IndentedJSON(http.StatusBadRequest, fmt.Sprintf("validation:"+
+					" %v", err))
 			}
-			set.PacketLossSettings = newSettings.PacketLoss
-			set.RttSettings = newSettings.RttSettings
-			set.PingerCount = newSettings.PingerCount
-			set.PingerInterval = newSettings.PingerInterval
-			c.IndentedJSON(http.StatusCreated, set)
+			if err := validate.Struct(newSettings); err != nil {
+				c.IndentedJSON(http.StatusBadRequest, fmt.Sprintf("validation:"+
+					" %v", err))
+			} else {
+				set.PacketLossSettings = newSettings.PacketLoss
+				set.RttSettings = newSettings.RttSettings
+				set.PingerCount = newSettings.PingerCount
+				set.PingerInterval = newSettings.PingerInterval
+				c.IndentedJSON(http.StatusCreated, set)
+			}
+
 		})
 		// выбор режима сети
 		r.POST("/set_network_mode", func(c *gin.Context) {

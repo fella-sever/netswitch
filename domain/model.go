@@ -21,7 +21,7 @@ type MetricsCount struct {
 type MetricsUserSetDto struct {
 	RttSettings    float64 `json:"rtt_settings_ms" validate:"required"`
 	PacketLoss     float64 `json:"packet_loss_percent" validate:"required"`
-	PingerCount    int     `json:"pinger_count"`
+	PingerCount    int     `json:"pinger_count" validate:"required"`
 	PingerInterval int64   `json:"pinger_interval_ms" validate:"numeric"`
 }
 type NetworkSwitchSettingsUserSetDTO struct {
