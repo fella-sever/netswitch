@@ -19,10 +19,11 @@ type MetricsCount struct {
 }
 
 type MetricsUserSetDto struct {
-	RttSettings    float64 `json:"rtt_settings_ms" validate:"required"`
-	PacketLoss     float64 `json:"packet_loss_percent" validate:"required"`
-	PingerCount    int     `json:"pinger_count" validate:"required"`
-	PingerInterval int64   `json:"pinger_interval_ms" validate:"numeric"`
+	RttSettings    float64 `json:"rtt_settings_ms" validate:"required,numeric,min=0"`
+	PacketLoss     float64 `json:"packet_loss_percent" validate:"required,numeric,min=0,max=100"`
+	PingerCount    int     `json:"pinger_count" validate:"required,numeric,min=1"`
+	PingerInterval int64   `json:"pinger_interval_ms" validate:"numeric,required,min=20"`
+	PingBlocksNum  float64 `json:"ping_blocks_num" validate:"numeric,required,min=1"`
 }
 type NetworkSwitchSettingsUserSetDTO struct {
 	NetworkSwitchMode string `json:"network_switch_mode" validate:"eq=main|eq=auto|eq=reserve,required"`
