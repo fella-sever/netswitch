@@ -49,7 +49,7 @@ func Endpoints(r *gin.Engine, wg *sync.WaitGroup, validate *validator.Validate,
 		r.GET("/get_info", func(c *gin.Context) {
 			c.JSON(http.StatusOK, set)
 		})
-		r.POST("/set_threshold", func(c *gin.Context) {
+		r.POST("/configure", func(c *gin.Context) {
 			var newSettings domain.MetricsUserSetDto
 			if err := c.BindJSON(&newSettings); err != nil {
 				return
