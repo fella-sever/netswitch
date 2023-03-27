@@ -18,7 +18,7 @@ type MetricsCount struct {
 	AliveMainNetwork    bool    `json:"alive_main_network"`           // состояние основного сетевого интерфейса
 	AliveReserveNetwork bool    `json:"alive_reserve_network"`        // состояние резервного сетевого интерфейса
 	PingerCount         int     `json:"pinger_count"`                 // настройки количества пакетов при тестировании сети (пользователь)
-	PingerInterval      int64   `json:"pinger_interval_ms"`           // настройки интервалов пинга (пользователь)
+	PingerInterval      int     `json:"pinger_interval_ms"`           // настройки интервалов пинга (пользователь)
 	NetworkSwitchMode   string  `json:"network_switch_mode"`          // настройки режима переключения сети
 	CurrentInterface    string  `json:"current_interface"`
 	PingBlocksNum       int     `json:"ping_blocks_num" validate:"numeric,required,min=1"`
@@ -28,7 +28,7 @@ type MetricsUserSetDto struct {
 	RttSettings    float64 `json:"rtt_settings_ms" validate:"required,numeric,min=0"`
 	PacketLoss     float64 `json:"packet_loss_percent" validate:"required,numeric,min=0,max=100"`
 	PingerCount    int     `json:"pinger_count" validate:"required,numeric,min=1"`
-	PingerInterval int64   `json:"pinger_interval_ms" validate:"numeric,required,min=20"`
+	PingerInterval int     `json:"pinger_interval_ms" validate:"numeric,required,min=20"`
 	PingBlocksNum  int     `json:"ping_blocks_num" validate:"numeric,required,min=1"`
 }
 type NetworkSwitchSettingsUserSetDTO struct {
@@ -115,9 +115,12 @@ func (m *MetricsCount) IpTablesSwitchReserve() error {
 
 func (m *MetricsCount) Pinger() (finalPacketLoss float64, finalRtt float64,
 	PingerErr error) {
-	for i := m.PingBlocksNum; i != 0; i-- {
-		ping, err := exec.Command("ping", "-I", m.CurrentInterface, "-i 0.2",
-			"-c 10", "8.8.8.8").Output()
+	count := fmt.Sprintf("%d", m.PingerCount)
+	interval := fmt.Sprintf("%d", m.PingerInterval/100)
+	pingSum := m.PingBlocksNum
+	for i := pingSum; i != 0; i-- {
+		ping, err := exec.Command("ping", "-I", m.CurrentInterface, "-i", interval,
+			"-c", count, "8.8.8.8").Output()
 		if err != nil {
 			log.Println("while pinging: ", err)
 		}
@@ -144,7 +147,7 @@ func (m *MetricsCount) Pinger() (finalPacketLoss float64, finalRtt float64,
 	}
 	t := finalRtt / float64(m.PingBlocksNum)
 	finalRtt = float64(int(t*100)) / 100
-	finalPacketLoss = finalPacketLoss / float64(m.PingBlocksNum)
+	finalPacketLoss = finalPacketLoss / float64(pingSum)
 
 	return finalPacketLoss, finalRtt, nil
 }
@@ -172,7 +175,7 @@ func (m *MetricsCount) SetDefaultFromEnv() (err error) {
 		case "PINGER_COUNT":
 			m.PingerCount, _ = strconv.Atoi(val)
 		case "PINGER_INTERVAL":
-			m.PingerInterval, _ = strconv.ParseInt(val, 64, 10)
+			m.PingerInterval, _ = strconv.Atoi(val)
 		case "NETWORK_SWITCH_MODE":
 			m.NetworkSwitchMode = val
 		case "PING_BLOCKS_NUM":
