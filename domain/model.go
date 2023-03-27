@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 )
 
 type MetricsCount struct {
@@ -20,7 +21,7 @@ type MetricsCount struct {
 	PingerInterval      int64   `json:"pinger_interval_ms"`           // настройки интервалов пинга (пользователь)
 	NetworkSwitchMode   string  `json:"network_switch_mode"`          // настройки режима переключения сети
 	CurrentInterface    string  `json:"current_interface"`
-	PingBlocksNum       float64 `json:"ping_blocks_num" validate:"numeric,required,min=1"`
+	PingBlocksNum       int     `json:"ping_blocks_num" validate:"numeric,required,min=1"`
 }
 
 type MetricsUserSetDto struct {
@@ -28,7 +29,7 @@ type MetricsUserSetDto struct {
 	PacketLoss     float64 `json:"packet_loss_percent" validate:"required,numeric,min=0,max=100"`
 	PingerCount    int     `json:"pinger_count" validate:"required,numeric,min=1"`
 	PingerInterval int64   `json:"pinger_interval_ms" validate:"numeric,required,min=20"`
-	PingBlocksNum  float64 `json:"ping_blocks_num" validate:"numeric,required,min=1"`
+	PingBlocksNum  int     `json:"ping_blocks_num" validate:"numeric,required,min=1"`
 }
 type NetworkSwitchSettingsUserSetDTO struct {
 	NetworkSwitchMode string `json:"network_switch_mode" validate:"eq=main|eq=auto|eq=reserve,required"`
@@ -112,9 +113,40 @@ func (m *MetricsCount) IpTablesSwitchReserve() error {
 	return nil
 }
 
-func (m *MetricsCount) Pinger() error {
+func (m *MetricsCount) Pinger() (finalPacketLoss float64, finalRtt float64,
+	PingerErr error) {
+	for i := m.PingBlocksNum; i != 0; i-- {
+		ping, err := exec.Command("ping", "-I", m.CurrentInterface, "-i 0.2",
+			"-c 10", "8.8.8.8").Output()
+		if err != nil {
+			log.Println("while pinging: ", err)
+		}
+		stringPing := string(ping)
+		packetLoss := strings.Split(stringPing, "\n")
+		rttRow := packetLoss[len(packetLoss)-2]
+		packetLossRow := packetLoss[len(packetLoss)-3]
+		splittedPacketLossRow := strings.Split(packetLossRow, ",")
+		loss, PingerErr := strconv.ParseFloat(string(
+			splittedPacketLossRow[2][1]), 64)
+		if err != nil {
+			log.Println(PingerErr)
+		}
+		finalPacketLoss += loss
+		splittedRttRow := strings.Split(rttRow, "/")
+		parseRtt := splittedRttRow[3]
+		tt := strings.Split(parseRtt, " ")
+		rtt, PingerErr := strconv.ParseFloat(tt[2], 64)
+		if err != nil {
+			log.Println(PingerErr)
+		}
+		finalRtt += rtt
 
-	return nil
+	}
+	t := finalRtt / float64(m.PingBlocksNum)
+	finalRtt = float64(int(t*100)) / 100
+	finalPacketLoss = finalPacketLoss / float64(m.PingBlocksNum)
+
+	return finalPacketLoss, finalRtt, nil
 }
 
 func (m *MetricsCount) SetDefaultFromEnv() (err error) {
@@ -144,7 +176,7 @@ func (m *MetricsCount) SetDefaultFromEnv() (err error) {
 		case "NETWORK_SWITCH_MODE":
 			m.NetworkSwitchMode = val
 		case "PING_BLOCKS_NUM":
-			m.PingBlocksNum, _ = strconv.ParseFloat(val, 10)
+			m.PingBlocksNum, _ = strconv.Atoi(val)
 		default:
 
 		}

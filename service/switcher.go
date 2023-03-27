@@ -8,9 +8,6 @@ import (
 	"net"
 	"net/http"
 	"networkSwitcher/domain"
-	"os/exec"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -20,14 +17,6 @@ func StartService() error {
 	var set domain.MetricsCount
 	validate := validator.New()
 	// дефолтное значение параметров запуска утилиты
-
-	//set.RttSettings = 100          // предел задержки по сети
-	//set.PacketLossSettings = 60    // предел потери пакетов
-	//set.PingerCount = 10           // сколько пакетов надо плюнуть
-	//set.PingerInterval = 20        // за какое время это пакеты на выплюнуть
-	//set.NetworkSwitchMode = "auto" // автоматический режим переключения сети по умолчанию
-	//set.PingBlocksNum = 3          // сколько раз должна сработать пингмашина,
-	//// чтобы проанализировать то, что там насчиталось
 	_ = set.SetDefaultFromEnv()
 	set.CurrentInterface = "eth0"
 	wg := sync.WaitGroup{}
@@ -119,28 +108,32 @@ func NetworkScan(PingToSwitch chan struct{}, set *domain.MetricsCount) error {
 				time.Sleep(time.Millisecond * 500)
 				continue
 			}
-			ping, err := exec.Command("ping", "-I", set.CurrentInterface, "-i 0.2",
-				"-c 10", "8.8.8.8").Output()
+			//ping, err := exec.Command("ping", "-I", set.CurrentInterface, "-i 0.2",
+			//	"-c 10", "8.8.8.8").Output()
+			//if err != nil {
+			//	log.Println("while pinging: ", err)
+			//}
+			//stringPing := string(ping)
+			//packetLoss := strings.Split(stringPing, "\n")
+			//rttRow := packetLoss[len(packetLoss)-2]
+			//packetLossRow := packetLoss[len(packetLoss)-3]
+			//splittedPacketLossRow := strings.Split(packetLossRow, ",")
+			//finalPacketLoss, lossErr := strconv.ParseFloat(string(
+			//	splittedPacketLossRow[2][1]), 64)
+			//if err != nil {
+			//	log.Println(lossErr)
+			//}
+			//
+			//splittedRttRow := strings.Split(rttRow, "/")
+			//parseRtt := splittedRttRow[3]
+			//tt := strings.Split(parseRtt, " ")
+			//finalRtt, err := strconv.ParseFloat(tt[2], 64)
+			//if err != nil {
+			//	log.Println(err)
+			//}
+			finalPacketLoss, finalRtt, err := set.Pinger()
 			if err != nil {
-				log.Println("while pinging: ", err)
-			}
-			stringPing := string(ping)
-			packetLoss := strings.Split(stringPing, "\n")
-			rttRow := packetLoss[len(packetLoss)-2]
-			packetLossRow := packetLoss[len(packetLoss)-3]
-			splittedPacketLossRow := strings.Split(packetLossRow, ",")
-			finalPacketLoss, lossErr := strconv.ParseFloat(string(
-				splittedPacketLossRow[2][1]), 64)
-			if err != nil {
-				log.Println(lossErr)
-			}
-
-			splittedRttRow := strings.Split(rttRow, "/")
-			parseRtt := splittedRttRow[3]
-			tt := strings.Split(parseRtt, " ")
-			finalRtt, err := strconv.ParseFloat(tt[2], 64)
-			if err != nil {
-				log.Println(err)
+				log.Println("pinger func err:", err)
 			}
 			set.Rtt = finalRtt
 			set.PacketLoss = finalPacketLoss * 10
