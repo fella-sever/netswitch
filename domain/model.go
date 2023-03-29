@@ -95,8 +95,9 @@ func (m *MetricsCount) IpTablesSwitchMain() error {
 	if mainErr != nil {
 		fmt.Println("while switching to main:", mainErr)
 	}
-	//m.CurrentInterface = "eth0"
-	fmt.Println("switched to main")
+	log.Printf("switched to main with rtt/set = %.2f/%.2f, "+
+		"packeloss/set = %.2f/%.2f. Switch mode: %s\n",
+		m.Rtt, m.RttSettings, m.PacketLoss, m.PacketLossSettings, m.NetworkSwitchMode)
 	return nil
 }
 
@@ -108,11 +109,15 @@ func (m *MetricsCount) IpTablesSwitchReserve() error {
 	if reserveErr != nil {
 		fmt.Println("while switching to reserve:", reserveErr)
 	}
-	//m.CurrentInterface = "wan0"
-	fmt.Println("switched to reserve")
+	//fmt.Println("switched to reserve with metrics:")
+	log.Printf("switched to reserve with rtt/set = %.2f/%.2f, "+
+		"packeloss/set = %.2f/%.2f. Switch mode: %s\n",
+		m.Rtt, m.RttSettings, m.PacketLoss, m.PacketLossSettings, m.NetworkSwitchMode)
 	return nil
+
 }
 
+// Pinger - пингер-машина
 func (m *MetricsCount) Pinger() (finalPacketLoss float64, finalRtt float64,
 	PingerErr error) {
 	count := fmt.Sprintf("%d", m.PingerCount)
@@ -152,9 +157,11 @@ func (m *MetricsCount) Pinger() (finalPacketLoss float64, finalRtt float64,
 	return finalPacketLoss, finalRtt, nil
 }
 
+// SetDefaultFromEnv - считывает дефолтные значения для натсройки пингера из
+// переменных среды, указанных в /etc/environment
 func (m *MetricsCount) SetDefaultFromEnv() (err error) {
 
-	fmt.Println(unix.Getenv("RTT_SETTINGS"))
+	log.Println("getting default vars from /etc/environment...")
 
 	var defaultEnv = []string{"RTT_SETTINGS", "PACKET_LOSS_SETTINGS", "PINGER_COUNT",
 		"PINGER_INTERVAL", "NETWORK_SWITCH_MODE", "PING_BLOCKS_NUM"}
@@ -170,16 +177,25 @@ func (m *MetricsCount) SetDefaultFromEnv() (err error) {
 		switch env {
 		case "RTT_SETTINGS":
 			m.RttSettings, _ = strconv.ParseFloat(val, 10)
+			log.Println("default rtt settings: ", m.RttSettings)
 		case "PACKET_LOSS_SETTINGS":
 			m.PacketLossSettings, _ = strconv.ParseFloat(val, 10)
+			log.Println("default packet loss settings: ", m.PacketLossSettings)
 		case "PINGER_COUNT":
 			m.PingerCount, _ = strconv.Atoi(val)
+			log.Println("default number of transmitting packets: ", m.PingerCount)
 		case "PINGER_INTERVAL":
 			m.PingerInterval, _ = strconv.Atoi(val)
+			log.Println("default interval between packets in ms: ",
+				m.PingerInterval)
 		case "NETWORK_SWITCH_MODE":
 			m.NetworkSwitchMode = val
+			log.Println("default network switch mode (auto, main, reserve): ",
+				m.NetworkSwitchMode)
 		case "PING_BLOCKS_NUM":
 			m.PingBlocksNum, _ = strconv.Atoi(val)
+			log.Println("default count of ping-blocks for smooth pinger switch: ",
+				m.PingBlocksNum)
 		default:
 
 		}

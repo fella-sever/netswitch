@@ -12,6 +12,7 @@ import (
 	"time"
 )
 
+// StartService - общий запуск приложения
 func StartService() error {
 	PingToSwitch := make(chan struct{})
 	var set domain.MetricsCount
@@ -29,17 +30,18 @@ func StartService() error {
 		return err
 	}
 	if err := Switch(PingToSwitch, &set); err != nil {
-		return nil
+		log.Println("switch: ", err)
 	}
 	wg.Wait()
 
 	return nil
 }
 
+// Endpoints - все эндпоинты, которые держит джин, ничего особенного
 func Endpoints(r *gin.Engine, wg *sync.WaitGroup, validate *validator.Validate,
 	set *domain.MetricsCount) error {
 	go func() {
-		// роут для получения пользователем информации о системе и насройках
+		// роут для получения пользователем информации о системе и настройках
 		r.GET("/get_info", func(c *gin.Context) {
 			c.JSON(http.StatusOK, set)
 		})
@@ -72,13 +74,15 @@ func Endpoints(r *gin.Engine, wg *sync.WaitGroup, validate *validator.Validate,
 			errs := validate.Struct(&networkSwitchMode)
 			if errs != nil {
 				c.IndentedJSON(http.StatusBadRequest, "bad validation:")
-
+				log.Println("bad validation while changing network switch mode")
 			} else {
 
 				set.NetworkSwitchMode = networkSwitchMode.NetworkSwitchMode
 
 				c.IndentedJSON(http.StatusAccepted,
 					"network mode: "+set.NetworkSwitchMode)
+				log.Println("network switch mode changer by user: ",
+					set.NetworkSwitchMode)
 			}
 		})
 		err := r.Run()
@@ -90,6 +94,10 @@ func Endpoints(r *gin.Engine, wg *sync.WaitGroup, validate *validator.Validate,
 	}()
 	return nil
 }
+
+// NetworkScan - инкапсулирует в себе функции сканирования состояния сети,
+// их обработки, сравнения с опорными значениями, заданными пользователем через
+// переменные среды, либо через api (/configure)
 func NetworkScan(PingToSwitch chan struct{}, set *domain.MetricsCount) error {
 	go func() {
 		var onc sync.Once
@@ -104,33 +112,9 @@ func NetworkScan(PingToSwitch chan struct{}, set *domain.MetricsCount) error {
 							"switch to reserve channel")
 					}
 				})
-
 				time.Sleep(time.Millisecond * 500)
 				continue
 			}
-			//ping, err := exec.Command("ping", "-I", set.CurrentInterface, "-i 0.2",
-			//	"-c 10", "8.8.8.8").Output()
-			//if err != nil {
-			//	log.Println("while pinging: ", err)
-			//}
-			//stringPing := string(ping)
-			//packetLoss := strings.Split(stringPing, "\n")
-			//rttRow := packetLoss[len(packetLoss)-2]
-			//packetLossRow := packetLoss[len(packetLoss)-3]
-			//splittedPacketLossRow := strings.Split(packetLossRow, ",")
-			//finalPacketLoss, lossErr := strconv.ParseFloat(string(
-			//	splittedPacketLossRow[2][1]), 64)
-			//if err != nil {
-			//	log.Println(lossErr)
-			//}
-			//
-			//splittedRttRow := strings.Split(rttRow, "/")
-			//parseRtt := splittedRttRow[3]
-			//tt := strings.Split(parseRtt, " ")
-			//finalRtt, err := strconv.ParseFloat(tt[2], 64)
-			//if err != nil {
-			//	log.Println(err)
-			//}
 			finalPacketLoss, finalRtt, err := set.Pinger()
 			if err != nil {
 				log.Println("pinger func err:", err)
@@ -143,6 +127,9 @@ func NetworkScan(PingToSwitch chan struct{}, set *domain.MetricsCount) error {
 	return nil
 }
 
+// Switch - функция переключения сети в зависимости от выставленных опорных
+// значений, заданных пользователем, переключение реализовано в трех режимах
+// auto, main, reserve
 func Switch(PingToSwitch chan struct{}, set *domain.MetricsCount) error {
 	go func() {
 		auto := false
@@ -154,8 +141,6 @@ func Switch(PingToSwitch chan struct{}, set *domain.MetricsCount) error {
 				if err := set.AutoNetwork(PingToSwitch); err != nil {
 					log.Println(err)
 				}
-
-				log.Println("switched to auto")
 				auto = true
 				main = false
 				reserve = false
